@@ -130,9 +130,13 @@ func accessAPI(url string) {
 	}
 
 	client := oauth2.NewClient(oauth2.NoContext, tokenSource)
-	_, err = client.Get(url)
+	res, err := client.Get(url)
 	if err != nil {
 		log.Println(err)
+		return
+	}
+	if res.StatusCode != 200 {
+		log.Printf("access failed[%d]: %s", res.StatusCode, url)
 		return
 	}
 	log.Println("access succeed ", url)
