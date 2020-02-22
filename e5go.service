@@ -7,7 +7,7 @@ Type=simple
 Restart=always
 RestartSec=10
 User=root
-ExecStart=/usr/bin/door
+ExecStart=/usr/bin/e5go
 
 [Install]
 WantedBy=multi-user.target
