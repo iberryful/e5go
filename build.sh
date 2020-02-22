@@ -1,6 +1,6 @@
 #!/bin/bash
 
-$BIN_NAME=e5go
+BIN_NAME=e5go
 
 go build -o $BIN_NAME *.go
 cp $BIN_NAME /usr/bin/$BIN_NAME && chmod +x /usr/bin/$BIN_NAME
