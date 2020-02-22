@@ -1,0 +1,13 @@
+[Unit]
+Description=e5go service
+After=network.target
+StartLimitIntervalSec=0
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+User=root
+ExecStart=/usr/bin/door
+
+[Install]
+WantedBy=multi-user.target
