@@ -8,8 +8,10 @@ import (
 	"net/http"
 	"time"
 
+	_ "github.com/mkevac/debugcharts" // 可选，添加后可以查看几个实时图表数据
 	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
+	_ "net/http/pprof" // 必须，引入 pprof 模块
 )
 
 const htmlIndex = `<html><body>
@@ -34,6 +36,7 @@ var msOauthConfig = &oauth2.Config{
 var period time.Duration = 30 * time.Second
 var done = make(chan bool, 1)
 var listen = "127.0.0.1:3000"
+var token = &oauth2.Token{}
 
 const oauthStateString = "random"
 
@@ -56,11 +59,11 @@ func init() {
 	listen = viper.GetString("listen")
 }
 
-func readToken(token *oauth2.Token) error {
-	token.AccessToken = viper.GetString("token.access_token")
-	token.RefreshToken = viper.GetString("token.refresh_token")
-	token.TokenType = viper.GetString("token.token_type")
-	token.Expiry = viper.GetTime("token.expiry")
+func readToken(t *oauth2.Token) error {
+	t.AccessToken = viper.GetString("token.access_token")
+	t.RefreshToken = viper.GetString("token.refresh_token")
+	t.TokenType = viper.GetString("token.token_type")
+	t.Expiry = viper.GetTime("token.expiry")
 
 	if token.AccessToken == "" {
 		return fmt.Errorf("no access_token loaded")
@@ -68,23 +71,23 @@ func readToken(token *oauth2.Token) error {
 	return nil
 }
 
-func saveToken(token *oauth2.Token) error {
-	viper.Set("token.access_token", token.AccessToken)
-	viper.Set("token.refresh_token", token.RefreshToken)
-	viper.Set("token.token_type", token.TokenType)
-	viper.Set("token.expiry", token.Expiry)
+func saveToken(t *oauth2.Token) error {
+	viper.Set("token.access_token", t.AccessToken)
+	viper.Set("token.refresh_token", t.RefreshToken)
+	viper.Set("token.token_type", t.TokenType)
+	viper.Set("token.expiry", t.Expiry)
 
 	return viper.WriteConfig()
 }
 
 func main() {
-	var token = &oauth2.Token{}
 	if err := readToken(token); err != nil {
 		log.Println("no token loaded")
 	} else {
 		log.Println("token loaded")
 		trigger(done)
 	}
+
 
 	http.HandleFunc("/", handleMain)
 	http.HandleFunc("/login", handleLogin)
@@ -113,7 +116,6 @@ func trigger(done chan bool) {
 }
 
 func accessAPI(url string) {
-	var token = &oauth2.Token{}
 	if err := readToken(token); err != nil {
 		log.Println("no token loaded, skip access API")
 	}
@@ -125,8 +127,9 @@ func accessAPI(url string) {
 	}
 
 	if newToken.AccessToken != token.AccessToken {
-		saveToken(newToken)
-		log.Println("Saved new token, expire at ", newToken.Expiry)
+	    token = newToken
+		saveToken(token)
+		log.Println("Saved new token, expire at ", token.Expiry)
 	}
 
 	client := oauth2.NewClient(oauth2.NoContext, tokenSource)
@@ -169,7 +172,7 @@ func handleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Println("got token")
-	done <- true
+	close(done)
 	done = make(chan bool, 1)
 	saveToken(token)
 	trigger(done)
