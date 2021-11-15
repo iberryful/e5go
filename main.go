@@ -8,10 +8,13 @@ import (
 	"net/http"
 	"time"
 
+	_ "net/http/pprof" // 必须，引入 pprof 模块
+
 	_ "github.com/mkevac/debugcharts" // 可选，添加后可以查看几个实时图表数据
 	"github.com/spf13/viper"
 	"golang.org/x/oauth2"
-	_ "net/http/pprof" // 必须，引入 pprof 模块
+
+	"github.com/robfig/cron/v3"
 )
 
 const htmlIndex = `<html><body>
@@ -33,6 +36,9 @@ var msOauthConfig = &oauth2.Config{
 	Endpoint: endpoint,
 }
 
+var s = rand.NewSource(time.Now().Unix())
+var r = rand.New(s)
+var cronString string = "*/30 * * * * ?" // 默认每隔30秒执行一次
 var period time.Duration = 30 * time.Second
 var done = make(chan bool, 1)
 var listen = "127.0.0.1:3000"
@@ -45,6 +51,7 @@ func init() {
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("$HOME/.config")
 	viper.AddConfigPath("$HOME")
+	viper.AddConfigPath("/app")
 	err := viper.ReadInConfig()
 	if err != nil {
 		log.Fatal("Fatal error config file: %s \n", err)
@@ -54,6 +61,7 @@ func init() {
 	msOauthConfig.ClientSecret = viper.GetString("client_secret")
 	msOauthConfig.Scopes = viper.GetStringSlice("scope")
 	msOauthConfig.RedirectURL = viper.GetString("redirect_uri")
+	cronString = viper.GetString("cron")
 	period = viper.GetDuration("period")
 	apis = viper.GetStringSlice("apis")
 	listen = viper.GetString("listen")
@@ -85,15 +93,25 @@ func main() {
 		log.Println("no token loaded")
 	} else {
 		log.Println("token loaded")
-		trigger(done)
+		// trigger(done)
+		NewCron()
 	}
-
 
 	http.HandleFunc("/", handleMain)
 	http.HandleFunc("/login", handleLogin)
 	http.HandleFunc("/callback", handleCallback)
 	log.Printf("listen at http://%s\n", listen)
 	log.Println(http.ListenAndServe(listen, nil))
+}
+
+func NewCron() {
+	c := cron.New(cron.WithSeconds())
+	c.AddFunc(cronString, accessAPI1)
+	c.Start()
+}
+
+func accessAPI1() {
+	accessAPI(apis[r.Intn(len(apis))])
 }
 
 func trigger(done chan bool) {
@@ -127,7 +145,7 @@ func accessAPI(url string) {
 	}
 
 	if newToken.AccessToken != token.AccessToken {
-	    token = newToken
+		token = newToken
 		saveToken(token)
 		log.Println("Saved new token, expire at ", token.Expiry)
 	}

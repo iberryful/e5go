@@ -6,6 +6,7 @@ apis:
 client_id: <your client id>
 client_secret: <your client secret>
 listen: 127.0.0.1:3000
+cron: "*/30 * * * * *"
 period: 30s
 redirect_uri: http://localhost:3000/callback
 scope:
